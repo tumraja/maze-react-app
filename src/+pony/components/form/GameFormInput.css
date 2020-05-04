@@ -1,0 +1,86 @@
+.Game {
+    height: 50vh;
+    text-align: center;
+}
+
+.Game__text-box {
+    top: 40%;
+    left: 50%;
+    text-align: center;
+}
+
+.Game-primary {
+    color: #3c2e35;
+    text-transform: uppercase;
+    backface-visibility: hidden;
+    margin-bottom: 6rem;
+}
+
+.Game--main {
+    display: block;
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: 1.5rem;
+
+    animation-name: moveInLeft;
+    animation-duration: 1s;
+    animation-timing-function: ease-out;
+}
+
+.Game--sub {
+    display: block;
+    font-size: 2rem;
+    font-weight: 600;
+    letter-spacing: 1.5rem;
+
+    animation-name: moveInRight;
+    animation-duration: 1s;
+    animation-timing-function: ease-out;
+}
+
+@keyframes moveInLeft {
+    0% {
+        opacity: 0;
+        transform: translateX(-10rem);
+    }
+
+    80% {
+        transform: translateX(2rem);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translate(0);
+    }
+}
+
+input[type=text], input[type=number] {
+    width: 60%;
+    padding: 12px 20px;
+    margin: 8px 0;
+    font-size: 18px;
+    box-sizing: border-box;
+    display: inline-block;
+}
+
+label {
+    font-size: 25px;
+    vertical-align: center;
+}
+
+.Game__button {
+    width: 60%;
+    padding: 20px;
+    font-size: 18px;
+    margin-bottom: 10px;
+    background: #ff00ff61;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.Game-error {
+    display: block;
+    color: red;
+    font-size: 14px;
+    margin-top: 5px;
+}
