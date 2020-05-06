@@ -2,8 +2,8 @@ const URL = 'https://ponychallenge.trustpilot.com/pony-challenge/maze';
 
 export async function createMaze(data) {
     const params = {
-        'maze-width': parseInt(data.width),
-        'maze-height': parseInt(data.height),
+        'maze-width': parseInt(data.mazeWidth),
+        'maze-height': parseInt(data.mazeHeight),
         'maze-player-name': data.ponyName,
         difficulty: parseInt(data.level)
     };
