@@ -6,23 +6,27 @@ import { GameFormInput } from "./form/GameFormInput";
 import { GameIntro } from "./intro/GameIntro";
 import { createMaze, getMaze, move, printMaze } from "../service/service";
 import { getDirectionByKeyCode } from "../getDirectionByKeyCode";
+import { determineAllPossiblePositions, getDirections } from "../service/agent-service";
 
 const BASEURL = 'https://ponychallenge.trustpilot.com';
+const DEFAULT_STATE = {
+    ponyName: 'Cheerilee',
+    mazeWidth: 20,
+    mazeHeight: 15,
+    level: 1,
+    maze: null,
+    data: null,
+    mazeId: null,
+    status: 'InActive',
+    message: '',
+    url: ''
+};
+
 export class Game extends React.Component {
     constructor(props) {
         super(props);
 
-        this.state = {
-            ponyName: 'Cheerilee',
-            width: 20,
-            height: 15,
-            level: 1,
-            maze: null,
-            mazeId: null,
-            status: 'InActive',
-            message: '',
-            url: ''
-        };
+        this.state = DEFAULT_STATE;
 
         this.handlePonyNameChange = this.handlePonyNameChange.bind(this);
         this.handleHeightChange = this.handleHeightChange.bind(this);
@@ -31,7 +35,8 @@ export class Game extends React.Component {
         this.restartGame = this.restartGame.bind(this);
         this.resetState = this.resetState.bind(this);
         this.createGame = this.createGame.bind(this);
-        this.move = this.move.bind(this);
+        this.runtAgent = this.runtAgent.bind(this);
+        this.movePony = this.movePony.bind(this);
     }
 
     handlePonyNameChange(ponyName) {
@@ -39,22 +44,22 @@ export class Game extends React.Component {
     }
 
     handleHeightChange(height) {
-        this.setState({height});
+        this.setState({mazeHeight: height});
     }
 
     handleWidthChange(width) {
-        this.setState({width});
+        this.setState({mazeWidth: width});
     }
 
     handleKeyPress(event) {
         if (this.isGameActive() && getDirectionByKeyCode(event.keyCode)) {
             const direction = getDirectionByKeyCode(event.keyCode);
-            this.move(direction);
+            this.movePony(direction).then(() => {});
         }
     }
 
     resetState() {
-        this.setState({maze: null, mazeId: null, status: 'InActive', message: '', url: ''});
+        this.setState(DEFAULT_STATE);
     }
 
     restartGame() {
@@ -83,7 +88,7 @@ export class Game extends React.Component {
                 const mazeId = data['maze_id'];
                 getMaze(mazeId).then((data) => {
                     const gameState = data['game-state'];
-                    this.setState({mazeId: mazeId, status: gameState.state, message: gameState['state-result']})
+                    this.setState({data: data, mazeId: mazeId, status: gameState.state, message: gameState['state-result']})
                 });
 
                 printMaze(mazeId).then((maze) => {
@@ -100,20 +105,47 @@ export class Game extends React.Component {
     }
 
     checkWidthAndHeight() {
-        return (this.state.width >= 15 && this.state.width <= 25) && (this.state.height >= 15 && this.state.height <= 25);
+        return (this.state.mazeWidth >= 15 && this.state.mazeWidth <= 25) && (this.state.mazeHeight >= 15 && this.state.mazeHeight <= 25);
     }
 
-    move(direction) {
-        move(direction, this.state.mazeId).then((data) => {
-            let url = null;
-            if (data['hidden-url']) {
-                url = `${BASEURL}${data['hidden-url']}`;
+    async movePony(direction) {
+        let url = null;
+        const moveState = await move(direction, this.state.mazeId);
+        if (moveState['hidden-url']) {
+            url = `${BASEURL}${moveState['hidden-url']}`;
+        }
+
+        const print = await printMaze(this.state.mazeId);
+        this.setState({maze: print, status: moveState.state, message: moveState['state-result'], url: url});
+    }
+
+    runtAgent() {
+        const ponyPosition = this.state.data.pony[0];
+        const mazeEndPoint = this.state.data['end-point'][0];
+        const mazeData = this.state.data.data;
+        const mazeHeight = this.state.data.size[1];
+        const mazeWidth = this.state.data.size[0];
+        const visitedPositions = [ponyPosition]; // Assume the current position is already visited
+        const markedPositions = [ponyPosition]; //Mark the current position
+        const possiblePositionsToReachTheGoal = [];
+
+        while (markedPositions.length > 0) {
+            const nextPosition = markedPositions.shift(); //Unmark the last position
+
+            if (nextPosition === mazeEndPoint) {
+                return this.resolveDirectionsAndMakeMove(nextPosition, ponyPosition, mazeEndPoint,  possiblePositionsToReachTheGoal);
             }
 
-            printMaze(this.state.mazeId).then((maze) => {
-                this.setState({maze: maze, status: data.state, message: data['state-result'], url: url});
-            });
-        })
+            determineAllPossiblePositions(nextPosition, mazeWidth, mazeData, visitedPositions, markedPositions, possiblePositionsToReachTheGoal, mazeHeight);
+        }
+    }
+
+    async resolveDirectionsAndMakeMove(currentPosition, ponyPosition, goalPosition, possiblePositions) {
+        const directions = getDirections(currentPosition, ponyPosition, goalPosition,  this.state.data.size[0], possiblePositions);
+        for (let direction of directions) {
+            if (!this.isGameActive()) return;
+            await this.movePony(direction);
+        }
     }
 
     render() {
@@ -130,8 +162,8 @@ export class Game extends React.Component {
                         <GameIntro />
                         <div className="Game__input">
                             <GameFormInput type={'text'} name={'pony'} paramValue={defaultMazeParams.ponyName} onParamsChange={this.handlePonyNameChange}/>
-                            <GameFormInput type={'number'} name={'mWidth'} paramValue={defaultMazeParams.width} onParamsChange={this.handleWidthChange}/>
-                            <GameFormInput type={'number'} name={'mHeight'} paramValue={defaultMazeParams.height} onParamsChange={this.handleHeightChange}/>
+                            <GameFormInput type={'number'} name={'mWidth'} paramValue={defaultMazeParams.mazeWidth} onParamsChange={this.handleWidthChange}/>
+                            <GameFormInput type={'number'} name={'mHeight'} paramValue={defaultMazeParams.mazeHeight} onParamsChange={this.handleHeightChange}/>
                         </div>
                         <button type="submit" className="Game__button" onClick={this.createGame}>Create new maze game</button>
                         <Link to="/" className="Game__button">Home</Link>
@@ -142,15 +174,13 @@ export class Game extends React.Component {
             return (
                 <div className="PlayGame">
                     <div className="PlayGame-control">
-                        <GameControl direction={'west'} icon={'arrow_back'} onMoveChange={this.move} />
-                        <GameControl direction={'north'} icon={'arrow_upward'} onMoveChange={this.move} />
-                        <GameControl direction={'south'} icon={'arrow_downward'} onMoveChange={this.move} />
-                        <GameControl direction={'east'} icon={'arrow_forward'} onMoveChange={this.move} />
+                        <GameControl direction={'west'} icon={'arrow_back'} onMoveChange={this.movePony} />
+                        <GameControl direction={'north'} icon={'arrow_upward'} onMoveChange={this.movePony} />
+                        <GameControl direction={'south'} icon={'arrow_downward'} onMoveChange={this.movePony} />
+                        <GameControl direction={'east'} icon={'arrow_forward'} onMoveChange={this.movePony} />
                     </div>
 
-                    <span className="PlayGame-keyboard"><i className="material-icons">keyboard</i></span>
-
-                    <button className="PlayGame-restart" onClick={this.restartGame}>Restart</button>
+                    <button className="PlayGame-restart" onClick={this.runtAgent}>Run Agent</button>
 
                     <div className="PlayGame-maze">
                         <p>(P: Pony) - (D: Domokun / Monster) - (E: Exit/End)</p>
